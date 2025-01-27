@@ -1,24 +1,20 @@
 import os
 import json
 import csv
-from datetime import datetime, timedelta
 from mitmproxy.io import FlowReader
+from mitmproxy.websocket import WebSocketMessage
 
 # Customizable parameters
-EXTENSION_NAME = "ExtensionName"
-SPACE = "PublicSpaces" # "PrivateSpaces", "PublicSpaces"
+EXTENSION_NAME = "copilot"
 
 # Directory and file paths
 FLOW_DIRECTORY = f"./Flows/{EXTENSION_NAME}"
 OUTPUT_CSV = f"./Output/{EXTENSION_NAME}.csv"
-OUTPUT_CSV_FP = f"{EXTENSION_NAME}-first-party.csv"
-OUTPUT_CSV_TP = f"{EXTENSION_NAME}-third-party.csv"
 DISCONNECT_JSON = "disconnect.json"
 
-# Function to load or generate disconnect mapping
+
 def load_disconnect_mapping(json_path):
     mapping_file = "disconnect_mapping.json"
-
     if os.path.exists(mapping_file):
         with open(mapping_file, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -39,13 +35,12 @@ def load_disconnect_mapping(json_path):
 
     return host_to_category
 
-# Function to parse .flow files and extract data
-def parse_flow_files(flow_dir, output_csv, output_csv_fp, output_csv_tp):
+
+def parse_flow_files(flow_dir, output_csv):
     disconnect_mapping = load_disconnect_mapping(DISCONNECT_JSON)
 
     output_rows = []
     headers_list = ["req_header_cookie", "res_header_cookie", "req_header_set-cookie", "res_header_set-cookie"]
-
     categories_of_interest = ["Advertising", "Analytics", "FingerprintingInvasive", "FingerprintingGeneral", "Social"]
 
     for filename in os.listdir(flow_dir):
@@ -115,6 +110,18 @@ def parse_flow_files(flow_dir, output_csv, output_csv_fp, output_csv_tp):
                 else:
                     response_body = ""
 
+                websocket_payloads = []
+                if hasattr(flow, "websocket") and flow.websocket is not None:
+                    for message in flow.websocket.messages:
+                        if isinstance(message, WebSocketMessage):
+                            websocket_payloads.append(message.content.decode("utf-8", errors="ignore"))
+
+                websocket_combined = "\n".join(websocket_payloads)
+                if websocket_combined and not payload:
+                    payload = websocket_combined
+                elif websocket_combined and payload:
+                    payload += f"\n{websocket_combined}"
+
                 row = {
                     "extension": EXTENSION_NAME,
                     "filename": filename,
@@ -151,6 +158,6 @@ def parse_flow_files(flow_dir, output_csv, output_csv_fp, output_csv_tp):
         writer.writeheader()
         writer.writerows(output_rows)
 
+
 if __name__ == "__main__":
-    parse_flow_files(FLOW_DIRECTORY, OUTPUT_CSV, OUTPUT_CSV_FP, OUTPUT_CSV_TP)
-    print(f"Output saved to {OUTPUT_CSV_FP} and {OUTPUT_CSV_TP}")
+    parse_flow_files(FLOW_DIRECTORY, OUTPUT_CSV)
