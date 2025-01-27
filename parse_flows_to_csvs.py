@@ -5,7 +5,7 @@ from mitmproxy.io import FlowReader
 from mitmproxy.websocket import WebSocketMessage
 
 # Customizable parameters
-EXTENSION_NAME = "copilot"
+EXTENSION_NAME = "ExtensionName"
 
 # Directory and file paths
 FLOW_DIRECTORY = f"./Flows/{EXTENSION_NAME}"
